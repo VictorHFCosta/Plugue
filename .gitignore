@@ -1,0 +1,16 @@
+# Ambiente e cache do Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Saídas do PyInstaller (o .exe vai para os Releases do GitHub, não para o código)
+build/
+dist/
+*.spec
+
+# Editores e sistema
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
