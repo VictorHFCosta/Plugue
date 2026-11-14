@@ -111,5 +111,39 @@ class TestPerfis(unittest.TestCase):
         self.assertIsNone(sem_partes["saida"])
 
 
+class TestInicioComWindows(unittest.TestCase):
+    """Liga e desliga o início automático numa chave de teste (não a do Windows)."""
+
+    def setUp(self):
+        import os
+        import uuid
+        import winreg
+
+        import sistema
+        self.sistema, self.winreg = sistema, winreg
+        self.chave = rf"Software\Plugue-teste-{uuid.uuid4().hex[:8]}"
+        os.environ["PLUGUE_CHAVE_INICIO"] = self.chave
+
+    def tearDown(self):
+        import os
+        os.environ.pop("PLUGUE_CHAVE_INICIO", None)
+        try:
+            self.winreg.DeleteKey(self.winreg.HKEY_CURRENT_USER, self.chave)
+        except FileNotFoundError:
+            pass
+
+    def test_liga_e_desliga(self):
+        s = self.sistema
+        self.assertFalse(s.inicia_com_windows())
+        s.definir_inicio(False)  # desligar o que já está desligado não dá erro
+        s.definir_inicio(True)
+        self.assertTrue(s.inicia_com_windows())
+        comando = s.comando_registrado()
+        self.assertTrue(comando.endswith(" " + s.ARG_INICIO))
+        self.assertIn("app.py", comando)  # rodando do código-fonte
+        s.definir_inicio(False)
+        self.assertFalse(s.inicia_com_windows())
+
+
 if __name__ == "__main__":
     unittest.main()

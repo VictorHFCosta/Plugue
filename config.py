@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 from pathlib import Path
 
 # Marca "use o dispositivo que estiver selecionado na lista de cima".
@@ -14,16 +13,7 @@ def _arquivo() -> Path:
     alternativo = os.environ.get("PLUGUE_CONFIG")
     if alternativo:
         return Path(alternativo)
-    base = Path(os.environ.get("APPDATA") or str(Path.home()))
-    arquivo = base / "Plugue" / "config.json"
-    anterior = base / "ControleDeSom" / "config.json"  # nome antigo do programa
-    if not arquivo.exists() and anterior.exists():
-        try:
-            arquivo.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(anterior, arquivo)
-        except OSError:
-            return anterior
-    return arquivo
+    return Path(os.environ.get("APPDATA") or str(Path.home())) / "Plugue" / "config.json"
 
 
 def canal_novo(entrada: str | None = None, monitor: bool = True) -> dict:

@@ -10,6 +10,7 @@ from tkinter import messagebox
 import customtkinter as ctk
 
 import dispositivos as disp
+import sistema
 from config import SELECIONADO, canal_novo, carregar, salvar
 from icones import icone, icone_branco
 from mixer import Mixer
@@ -201,6 +202,10 @@ class App(ctk.CTk):
                      compound="left", font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
         ctk.CTkLabel(cabecalho, text="troque fone e microfone, junte entradas e guarde perfis",
                      text_color=TEXTO_FRACO).pack(side="left", padx=14, pady=(6, 0))
+        self.var_inicio = ctk.BooleanVar(value=sistema.inicia_com_windows())
+        ctk.CTkSwitch(cabecalho, text="Iniciar com o Windows (abre minimizado)",
+                      variable=self.var_inicio, command=self._alternar_inicio
+                      ).pack(side="right", pady=(6, 0))
 
         self._montar_barra_perfis()
 
@@ -969,6 +974,15 @@ class App(ctk.CTk):
         except OSError:
             pass  # sem permissão de escrita: segue funcionando sem lembrar a configuração
 
+    def _alternar_inicio(self) -> None:
+        ativo = self.var_inicio.get()
+        try:
+            sistema.definir_inicio(ativo)
+        except OSError as erro:
+            self.var_inicio.set(not ativo)
+            messagebox.showerror("Plugue", f"Não consegui mudar o início com o Windows:\n\n{erro}",
+                                 parent=self)
+
     def _fechar(self) -> None:
         self.mixer.parar()
         self._salvar_agora()
@@ -976,11 +990,20 @@ class App(ctk.CTk):
 
 
 def main() -> None:
+    if not sistema.primeira_instancia():
+        return  # já estava aberto: a janela existente foi trazida para a frente
+    try:
+        sistema.corrigir_caminho_inicio()
+    except OSError:
+        pass
     # Troca de contexto mais curta: os retornos de áudio não esperam a interface.
     sys.setswitchinterval(0.001)
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
-    App().mainloop()
+    janela = App()
+    if sistema.ARG_INICIO in sys.argv[1:]:
+        janela.iconify()  # aberto pelo Windows no login: fica na barra de tarefas
+    janela.mainloop()
 
 
 if __name__ == "__main__":

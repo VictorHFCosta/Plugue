@@ -112,6 +112,26 @@ class _Canal:
         self.pico = 0.0
 
 
+def _ajustes_wasapi(bruto: bool) -> sd.WasapiSettings:
+    """Opções do WASAPI. bruto=True pede o modo RAW: o Windows entrega o som da entrada
+    sem os efeitos de processamento (supressão de ruído, "Voice Clarity", controle
+    automático de ganho). Esses efeitos são feitos para voz: num instrumento eles
+    cortam o fim das notas e deixam o som artificial."""
+    ajustes = sd.WasapiSettings(auto_convert=True)
+    if bruto:
+        # O sounddevice não expõe essa opção; ela existe na estrutura do PortAudio.
+        ajustes._streaminfo.streamOption = sd._lib.eStreamOptionRaw
+    return ajustes
+
+
+def _abrir_entrada(**opcoes) -> sd.InputStream:
+    """Abre a entrada em modo bruto; se o dispositivo não aceitar, no modo normal."""
+    try:
+        return sd.InputStream(extra_settings=_ajustes_wasapi(bruto=True), **opcoes)
+    except (sd.PortAudioError, AttributeError):
+        return sd.InputStream(extra_settings=_ajustes_wasapi(bruto=False), **opcoes)
+
+
 def _localizar(nome: str, entrada: bool) -> tuple[int, dict]:
     """Acha o dispositivo pelo nome que o Windows mostra, dentro da API WASAPI."""
     apis = sd.query_hostapis()
@@ -155,19 +175,19 @@ class Mixer:
         alvo = int(TAXA * alvo_ms / 1000)
         self._papeis = [papeis for _, papeis in destinos]
         self._canais = [_Canal(len(destinos), alvo) if nome else None for nome in entradas]
-        opcoes = dict(samplerate=TAXA, dtype="float32", latency="low",
-                      extra_settings=sd.WasapiSettings(auto_convert=True))
+        opcoes = dict(samplerate=TAXA, dtype="float32", latency="low")
         try:
             for d, (nome, _) in enumerate(destinos):
                 indice, info = _localizar(nome, entrada=False)
                 self._fluxos.append(sd.OutputStream(
                     device=indice, channels=min(2, info["max_output_channels"]),
-                    callback=self._ao_sair(d), **opcoes))
+                    callback=self._ao_sair(d), extra_settings=_ajustes_wasapi(False),
+                    **opcoes))
             for nome, canal in zip(entradas, self._canais):
                 if canal is None:
                     continue
                 indice, info = _localizar(nome, entrada=True)
-                self._fluxos.append(sd.InputStream(
+                self._fluxos.append(_abrir_entrada(
                     device=indice, channels=min(2, info["max_input_channels"]),
                     callback=self._ao_entrar(canal), **opcoes))
             for fluxo in self._fluxos:
